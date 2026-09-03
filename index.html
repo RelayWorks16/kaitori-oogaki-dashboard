@@ -24,6 +24,9 @@
   .empty { text-align: center; color: #999; padding: 40px 0; font-size: 13px; }
   .loading { text-align: center; color: #999; padding: 40px 0; font-size: 13px; }
   .error { text-align: center; color: #c0392b; padding: 40px 0; font-size: 13px; }
+  .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .actions button { flex: 1; min-width: 90px; padding: 8px 4px; border: none; border-radius: 6px; background: #06c755; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; }
+  .actions button:disabled { background: #ccc; cursor: default; }
 </style>
 </head>
 <body>
@@ -74,8 +77,39 @@
           <div>${it.accountType || ''} ${it.accountNumber || ''}</div>
           <div>名義: ${it.accountHolder || ''}</div>
         </div>` : `<div class="bank">支払方法: ${it.paymentMethod || '-'}</div>`}
+        <div class="actions">
+          ${!it.received ? `<button data-receipt="${it.receiptNo}" data-field="荷物受取">荷物受取済みにする</button>` : ''}
+          ${!it.inspected ? `<button data-receipt="${it.receiptNo}" data-field="検品">検品済みにする</button>` : ''}
+          ${!it.paid ? `<button data-receipt="${it.receiptNo}" data-field="支払済み">支払済みにする</button>` : ''}
+        </div>
       </div>
     `).join('');
+
+    listEl.querySelectorAll('.actions button').forEach((btn) => {
+      btn.addEventListener('click', () => updateStatus(btn));
+    });
+  }
+
+  async function updateStatus(btn) {
+    const receiptNo = btn.dataset.receipt;
+    const field = btn.dataset.field;
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+    try {
+      const res = await fetch(`${API_URL}?token=${encodeURIComponent(TOKEN)}&action=updateStatus&receiptNo=${encodeURIComponent(receiptNo)}&field=${encodeURIComponent(field)}`);
+      const data = await res.json();
+      if (data.error) {
+        alert('更新に失敗しました: ' + data.error);
+        btn.disabled = false;
+        btn.textContent = '再試行';
+        return;
+      }
+      const activeTab = document.querySelector('.tab.active');
+      load(activeTab ? activeTab.dataset.status : '未受取');
+    } catch (err) {
+      alert('更新に失敗しました');
+      btn.disabled = false;
+    }
   }
 
   async function load(status) {
